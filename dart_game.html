@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>선배와의 대화 with 신입직원</title>
+  <!-- 구글 폰트 Poppins 적용 -->
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    /* 페이지 기본 스타일 */
+    body {
+      margin: 0;
+      padding: 0;
+      text-align: center;
+      font-family: 'Poppins', sans-serif;
+      background: linear-gradient(135deg, #ff9a9e 0%, #fad0c4 100%);
+    }
+    
+    /* 헤더 영역: 로고와 타이틀 */
+    #header {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-top: 30px;
+    }
+    /* 로고 이미지 스타일 */
+    #companyLogo {
+      width: 110px;       /* 원하는 크기로 조절 가능 */
+      height: auto;
+      margin-right: 15px;
+    }
+    /* 타이틀 스타일 */
+    h1 {
+      font-size: 2rem;
+      color: #333;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+      margin: 0;
+    }
+    
+    /* 룰렛 컨테이너 */
+    #rouletteContainer {
+      position: relative;
+      width: 600px;
+      margin: 20px auto;
+      box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    
+    /* 룰렛 캔버스 */
+    #rouletteCanvas {
+      display: block;
+      margin: 0 auto;
+      background: #fff;
+    }
+    
+    /* 폭죽(컨페티) 캔버스 */
+    #confettiCanvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      pointer-events: none;
+      z-index: 9998;
+    }
+    
+    /* 당첨자 메시지 */
+    #winnerMessage {
+      position: absolute;  
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: #1a237e;
+      font-size: 36px;
+      font-weight: 600;
+      display: none;
+      z-index: 9999;
+      padding: 10px 20px;
+      border-radius: 5px;
+      background: rgba(255, 255, 255, 0.8);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+      pointer-events: none;
+    }
+    
+    /* 버튼 스타일 */
+    button {
+      margin: 20px;
+      font-size: 18px;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 30px;
+      cursor: pointer;
+      color: #fff;
+      background: linear-gradient(45deg, #ff6e7f, #bfe9ff);
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    button:hover {
+      transform: scale(1.05);
+      box-shadow: 0 6px 10px rgba(0,0,0,0.15);
+    }
+    
+    /* 당첨 텍스트 확대 애니메이션 */
+    @keyframes zoomIn {
+      0% {
+        transform: translate(-50%, -50%) scale(0.5);
+        opacity: 0;
+      }
+      100% {
+        transform: translate(-50%, -50%) scale(1);
+        opacity: 1;
+      }
+    }
+    .zoomIn {
+      display: block;
+      animation: zoomIn 4s ease-out forwards;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 헤더 영역: 로고와 타이틀 -->
+  <header id="header">
+    <!-- 로고 이미지 (같은 폴더 내 logo.jpg 파일) -->
+    <img src="company-logo.png" alt="회사 로고" id="companyLogo">
+    <h1>선배와의 대화 with 신입직원</h1>
+  </header>
+
+  <!-- 룰렛/당첨 텍스트/폭죽 캔버스 컨테이너 -->
+  <div id="rouletteContainer">
+    <canvas id="rouletteCanvas" width="600" height="600"></canvas>
+    <canvas id="confettiCanvas" width="600" height="600"></canvas>
+    <div id="winnerMessage"></div>
+  </div>
+
+  <!-- 버튼: "돌려주세요!" -->
+  <button id="spinBtn">돌려주세요!</button>
+
+  <script>
+    /* ============== 룰렛 기본 설정 ============== */
+    const names = [
+      "직원1", "직원2", "직원3", "직원4", "직원5",
+      "직원6", "직원7", "직원8", "직원9", "직원10",
+      "직원11", "직원12", "직원13", "직원14", "직원15",
+      "직원16", "직원17", "직원18", "직원19"
+    ];
+
+    const rouletteCanvas = document.getElementById("rouletteCanvas");
+    const ctx = rouletteCanvas.getContext("2d");
+
+    const confettiCanvas = document.getElementById("confettiCanvas");
+    const confettiCtx = confettiCanvas.getContext("2d");
+
+    const spinBtn = document.getElementById("spinBtn");
+    const winnerMessage = document.getElementById("winnerMessage");
+
+    const centerX = rouletteCanvas.width / 2; // 300
+    const centerY = rouletteCanvas.height / 2; // 300
+    const outerRadius = 250;
+    const numSlices = names.length;
+    const sliceAngle = (2 * Math.PI) / numSlices;
+
+    let rotation = 0;
+    let spinning = false;
+    let confettiActive = false;
+
+    /* ============== 룰렛 그리기 함수 (트렌디한 그라데이션 적용) ============== */
+    function drawWheel() {
+      for (let i = 0; i < numSlices; i++) {
+        const startAngle = i * sliceAngle;
+        const endAngle = startAngle + sliceAngle;
+        
+        // radial gradient 적용
+        const gradient = ctx.createRadialGradient(0, 0, outerRadius * 0.3, 0, 0, outerRadius);
+        if (i % 2 === 0) {
+          gradient.addColorStop(0, "#ff9a9e");
+          gradient.addColorStop(1, "#fad0c4");
+        } else {
+          gradient.addColorStop(0, "#a18cd1");
+          gradient.addColorStop(1, "#fbc2eb");
+        }
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.arc(0, 0, outerRadius, startAngle, endAngle);
+        ctx.closePath();
+        ctx.fill();
+
+        // 슬라이스에 이름 표시
+        ctx.save();
+        const textAngle = startAngle + sliceAngle / 2;
+        ctx.rotate(textAngle);
+        ctx.textAlign = "right";
+        ctx.fillStyle = "#4a148c";
+        ctx.font = "bold 16px 'Poppins', sans-serif";
+        ctx.fillText(names[i], outerRadius - 20, 8);
+        ctx.restore();
+      }
+    }
+
+    // 고정 포인터 (빨간 네온 효과)
+    function drawPointer() {
+      ctx.save();
+      ctx.fillStyle = "#d32f2f";
+      ctx.shadowColor = "#ff5252";
+      ctx.shadowBlur = 10;
+      ctx.beginPath();
+      const pointerTipX = centerX + outerRadius + 10;
+      const pointerBaseX = pointerTipX + 20;
+      ctx.moveTo(pointerTipX, centerY);
+      ctx.lineTo(pointerBaseX, centerY - 15);
+      ctx.lineTo(pointerBaseX, centerY + 15);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
+
+    // 룰렛 캔버스 애니메이션
+    function animateWheel() {
+      ctx.clearRect(0, 0, rouletteCanvas.width, rouletteCanvas.height);
+      ctx.save();
+      ctx.translate(centerX, centerY);
+      ctx.rotate(rotation);
+      drawWheel();
+      ctx.restore();
+      drawPointer();
+      requestAnimationFrame(animateWheel);
+    }
+
+    // 회전 각도 업데이트
+    function updateRotation() {
+      if (spinning) {
+        rotation += 0.1;
+        rotation %= (2 * Math.PI);
+      }
+      requestAnimationFrame(updateRotation);
+    }
+
+    /* ============== 폭죽(컨페티) 애니메이션 (중앙 폭발) ============== */
+    const confettiPieces = [];
+    const colors = [
+      "#f44336", "#e91e63", "#9c27b0", "#673ab7",
+      "#3f51b5", "#2196f3", "#03a9f4", "#00bcd4",
+      "#009688", "#4caf50", "#8bc34a", "#cddc39",
+      "#ffeb3b", "#ffc107", "#ff9800", "#ff5722"
+    ];
+
+    function startConfetti() {
+      confettiPieces.length = 0;
+      confettiActive = true;
+      for (let i = 0; i < 100; i++) {
+        const angle = Math.random() * 2 * Math.PI;
+        const speed = 3 + Math.random() * 4;
+        const size = 5 + Math.random() * 10;
+        confettiPieces.push({
+          x: centerX,
+          y: centerY,
+          size: size,
+          color: colors[Math.floor(Math.random() * colors.length)],
+          speedX: Math.cos(angle) * speed,
+          speedY: Math.sin(angle) * speed,
+          rotation: Math.random() * 2 * Math.PI,
+          rotationSpeed: (Math.random() - 0.5) * 0.3
+        });
+      }
+      setTimeout(stopConfetti, 3000);
+    }
+
+    function stopConfetti() {
+      confettiActive = false;
+    }
+
+    function animateConfetti() {
+      confettiCtx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+      if (confettiActive) {
+        confettiPieces.forEach(p => {
+          p.x += p.speedX;
+          p.y += p.speedY;
+          p.rotation += p.rotationSpeed;
+          confettiCtx.save();
+          confettiCtx.translate(p.x, p.y);
+          confettiCtx.rotate(p.rotation);
+          confettiCtx.fillStyle = p.color;
+          confettiCtx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
+          confettiCtx.restore();
+        });
+      }
+      requestAnimationFrame(animateConfetti);
+    }
+
+    /* ============== 이벤트 처리: 버튼 클릭 (룰렛 2초 후 당첨) ============== */
+    spinBtn.addEventListener("click", () => {
+      if (!spinning) {
+        spinning = true;
+        winnerMessage.style.display = "none";
+        winnerMessage.classList.remove("zoomIn");
+        winnerMessage.innerHTML = "";
+        setTimeout(() => {
+          spinning = false;
+          let adjustedRotation = ((-rotation) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
+          const winningIndex = Math.floor(adjustedRotation / sliceAngle);
+          const winnerName = names[winningIndex];
+          winnerMessage.innerHTML = `당첨: ${winnerName}`;
+          winnerMessage.style.display = "block";
+          winnerMessage.classList.add("zoomIn");
+          startConfetti();
+        }, 2000);
+      }
+    });
+
+    /* ============== 메인 애니메이션 루프 시작 ============== */
+    animateWheel();
+    updateRotation();
+    animateConfetti();
+  </script>
+</body>
+</html>
